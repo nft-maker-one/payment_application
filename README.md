@@ -28,11 +28,29 @@ The core logic resides in `PaymentCore.sol` at `0xe7f1725E7734CE288F8367e1Bb143E
 - `getGlobalStats()`: Returns total payments and active subscription counts.
 - `getMerchant(address merchant)`: Returns registration details and total revenue for a merchant.
 
-## Local Development & Testing
+## Prerequisites & Installation
 
-### Prerequisites
-- [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Node.js](https://nodejs.org/)
+Before running the application, ensure you have the following environments set up:
+
+### 1. Foundry (Smart Contract Environment)
+Foundry is required to compile, deploy, and run the local blockchain.
+- **Installation**:
+  ```bash
+  curl -L https://foundry.paradigm.xyz | bash
+  foundryup
+  ```
+- **Verify**: Run `forge --version` and `anvil --version`.
+
+### 2. Node.js (Frontend Environment)
+Required for the Next.js dashboard.
+- **Recommended Version**: Node.js 18.x or 20.x (LTS).
+- **Verify**: Run `node -v` and `npm -v`.
+
+### 3. MetaMask (Browser Extension)
+Required to interact with the application.
+- Install from [metamask.io](https://metamask.io/).
+
+## Local Development & Testing
 
 ### Step 1: Start Local Blockchain
 ```bash
