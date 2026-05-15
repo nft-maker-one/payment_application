@@ -1,15 +1,27 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import Head from 'next/head';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { usePay, useApproveToken, useCalculateFee, SUPPORTED_TOKENS } from '../middleware';
+import { useAccount } from 'wagmi';
+import { formatUnits } from 'viem';
 
 export default function Home() {
+  const { isConnected, address } = useAccount();
+
   // --- 1. 状态管理 (左侧支付表单) ---
   const [amount, setAmount] = useState('');
   const [recipient, setRecipient] = useState('');
-  const [token, setToken] = useState('USDC');
+  const [tokenSymbol, setTokenSymbol] = useState('USDC');
   const [isRecurring, setIsRecurring] = useState(false);
 
-  // --- 2. 模拟数据 (右侧性能监控) ---
+  const tokenAddress = SUPPORTED_TOKENS[tokenSymbol as keyof typeof SUPPORTED_TOKENS] as `0x${string}`;
+
+  // --- 2. Middleware Hooks ---
+  const { pay, isPending: isPayPending, isConfirming: isPayConfirming, isSuccess: isPaySuccess } = usePay();
+  const { approve, isPending: isApprovePending, isConfirming: isApproveConfirming, isSuccess: isApproveSuccess } = useApproveToken();
+  const { data: estimatedFee } = useCalculateFee(amount || '0');
+
+  // --- 3. 模拟数据 (右侧性能监控) ---
   const stats = {
     tps: 150.5,
     latency: '1.2s',
@@ -25,13 +37,29 @@ export default function Home() {
     { id: '0x9i0j...1k2l', type: '单次支付', amount: '0.1 ETH', status: '处理中', time: '刚刚' },
   ];
 
-  const handlePay = (e: React.FormEvent) => {
+  const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isConnected) {
+      alert("请先连接钱包！");
+      return;
+    }
     if (!amount || !recipient) {
       alert("请填写完整的支付信息！");
       return;
     }
-    alert(`🚀 支付请求已发起！\n代币: ${token}\n金额: ${amount}\n收款人: ${recipient}\n定期支付: ${isRecurring ? '已开启' : '未开启'}`);
+
+    try {
+      // 1. Approve (simplified for demo, usually check allowance first)
+      console.log("Approving...");
+      await approve(tokenAddress, amount);
+      
+      // 2. Pay
+      console.log("Paying...");
+      await pay(tokenAddress, recipient as `0x${string}`, amount);
+    } catch (err) {
+      console.error(err);
+      alert("交易失败，请查看控制台。");
+    }
   };
 
   return (
@@ -69,13 +97,12 @@ export default function Home() {
                 <div className="w-1/3">
                   <label className="block text-sm font-semibold text-gray-600 mb-2">代币</label>
                   <select 
-                    value={token} 
-                    onChange={(e) => setToken(e.target.value)}
+                    value={tokenSymbol} 
+                    onChange={(e) => setTokenSymbol(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none"
                   >
                     <option value="USDC">USDC (Stable)</option>
                     <option value="USDT">USDT (Stable)</option>
-                    <option value="ETH">ETH</option>
                   </select>
                 </div>
                 <div className="w-2/3">
@@ -120,11 +147,24 @@ export default function Home() {
               </div>
 
               <button 
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-5 px-4 rounded-2xl transition-all shadow-lg shadow-blue-200 active:scale-95"
+                type="submit" 
+                disabled={isPayPending || isApprovePending || isPayConfirming || isApproveConfirming}
+                className={`w-full py-5 px-4 rounded-2xl font-bold text-lg shadow-lg transition-all ${
+                  isPayPending || isApprovePending || isPayConfirming || isApproveConfirming
+                    ? 'bg-gray-400 cursor-not-allowed text-white'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 active:scale-95'
+                }`}
               >
-                {isRecurring ? '授权并开启自动订阅 🔄' : '立即确认支付 🚀'}
+                {isApprovePending || isApproveConfirming ? '正在批准代币...' : 
+                 isPayPending || isPayConfirming ? '正在发起支付...' : 
+                 (isRecurring ? '授权并开启自动订阅 🔄' : '立即确认支付 🚀')}
               </button>
+
+              {(isPaySuccess || isApproveSuccess) && (
+                <div className="mt-4 p-4 bg-green-50 text-green-700 rounded-2xl text-sm border border-green-100 text-center">
+                  {isPaySuccess ? '✅ 支付成功！' : '✅ 代币批准成功，正在准备支付...'}
+                </div>
+              )}
             </form>
           </div>
 
