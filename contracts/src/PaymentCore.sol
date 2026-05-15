@@ -47,11 +47,17 @@ contract PaymentCore is IPaymentCore, AccessControl, ReentrancyGuard, Pausable {
     /// @dev Merchant address → registration info.
     mapping(address => MerchantInfo) private _merchants;
 
+    /// @dev subscriptionId → Subscription details.
+    mapping(bytes32 => Subscription) private _subscriptions;
+
     /// @dev paymentId → already processed; guards against cross-function replay.
     mapping(bytes32 => bool)         private _processedPayments;
 
     /// @dev Monotonic counter used when generating paymentIds.
     uint256 private _nonce;
+
+    uint256 public totalPayments;
+    uint256 public totalSubscriptions;
 
     // ─── Constructor ──────────────────────────────────────────────────────────
 
@@ -111,8 +117,97 @@ contract PaymentCore is IPaymentCore, AccessControl, ReentrancyGuard, Pausable {
         }
 
         _merchants[merchant].totalReceived += net;
+        totalPayments++;
 
         emit PaymentProcessed(paymentId, msg.sender, merchant, token, amount, fee);
+    }
+
+    // ─── Subscriptions ───────────────────────────────────────────────────────
+
+    /// @inheritdoc IPaymentCore
+    function subscribe(
+        address token,
+        address merchant,
+        uint256 amount,
+        uint256 interval
+    ) external override nonReentrant whenNotPaused returns (bytes32 subscriptionId) {
+        require(supportedTokens[token],          "PaymentCore: token not supported");
+        require(_merchants[merchant].registered, "PaymentCore: merchant not registered");
+        require(amount > 0,                       "PaymentCore: zero amount");
+        require(interval >= 1 hours,              "PaymentCore: interval too short");
+
+        subscriptionId = keccak256(
+            abi.encodePacked(msg.sender, merchant, token, amount, interval, _nonce++, block.chainid)
+        );
+
+        _subscriptions[subscriptionId] = Subscription({
+            payer:           msg.sender,
+            merchant:        merchant,
+            token:           token,
+            amount:          amount,
+            interval:        interval,
+            lastPaymentTime: 0, // Not paid yet
+            active:          true
+        });
+
+        totalSubscriptions++;
+
+        emit SubscriptionCreated(subscriptionId, msg.sender, merchant, token, amount, interval);
+    }
+
+    /// @inheritdoc IPaymentCore
+    function executeSubscription(bytes32 subscriptionId) external override nonReentrant whenNotPaused {
+        Subscription storage sub = _subscriptions[subscriptionId];
+        require(sub.active, "PaymentCore: subscription not active");
+        require(
+            block.timestamp >= sub.lastPaymentTime + sub.interval,
+            "PaymentCore: too early for next payment"
+        );
+
+        uint256 fee = feeManager.calculateFee(sub.amount);
+        require(fee < sub.amount, "PaymentCore: fee exceeds amount");
+        uint256 net = sub.amount - fee;
+
+        // Update last payment time BEFORE transfer to prevent reentrancy (though we have nonReentrant)
+        sub.lastPaymentTime = block.timestamp;
+
+        // Phase 1: pull full gross amount from payer.
+        IERC20(sub.token).safeTransferFrom(sub.payer, address(this), sub.amount);
+
+        // Phase 2: forward net to merchant and fee to treasury.
+        IERC20(sub.token).safeTransfer(sub.merchant, net);
+        if (fee > 0) {
+            IERC20(sub.token).safeTransfer(treasury, fee);
+        }
+
+        _merchants[sub.merchant].totalReceived += net;
+
+        emit SubscriptionExecuted(subscriptionId, sub.amount, fee);
+    }
+
+    /// @inheritdoc IPaymentCore
+    function cancelSubscription(bytes32 subscriptionId) external override {
+        Subscription storage sub = _subscriptions[subscriptionId];
+        require(sub.active, "PaymentCore: subscription already inactive");
+        require(
+            msg.sender == sub.payer || hasRole(ADMIN_ROLE, msg.sender),
+            "PaymentCore: unauthorized"
+        );
+
+        sub.active = false;
+        emit SubscriptionCancelled(subscriptionId);
+    }
+
+    /// @inheritdoc IPaymentCore
+    function getSubscription(bytes32 subscriptionId) external view override returns (Subscription memory) {
+        return _subscriptions[subscriptionId];
+    }
+
+    // ─── Metrics ─────────────────────────────────────────────────────────────
+
+    /// @inheritdoc IPaymentCore
+    function getGlobalStats() external view override returns (uint256, uint256) {
+        return (totalPayments, totalSubscriptions);
     }
 
     // ─── Merchant Registry ────────────────────────────────────────────────────

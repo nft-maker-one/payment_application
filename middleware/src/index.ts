@@ -1,6 +1,6 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { PAYMENT_CORE_ABI, ERC20_ABI, FEE_MANAGER_ABI } from './abi';
-import { PAYMENT_CORE_ADDRESS, FEE_MANAGER_ADDRESS } from './constants';
+import { PAYMENT_CORE_ADDRESS, FEE_MANAGER_ADDRESS, SUPPORTED_TOKENS } from './constants';
 import { parseUnits } from 'viem';
 
 // --- Hooks for PaymentCore ---
@@ -15,7 +15,7 @@ export function usePay() {
     hash,
   });
 
-  const pay = async (tokenAddress: `0x${string}`, merchantAddress: `0x${string}`, amount: string, decimals: number = 18) => {
+  const pay = async (tokenAddress: `0x${string}`, merchantAddress: `0x${string}`, amount: string, decimals: number = 6) => {
     const amountInUnits = parseUnits(amount, decimals);
     
     return writeContractAsync({
@@ -58,7 +58,7 @@ export function useIsSupportedToken(tokenAddress: `0x${string}`) {
 /**
  * Hook to calculate fee
  */
-export function useCalculateFee(amount: string, decimals: number = 18) {
+export function useCalculateFee(amount: string, decimals: number = 6) {
   const amountInUnits = parseUnits(amount, decimals);
   
   return useReadContract({
@@ -81,7 +81,7 @@ export function useApproveToken() {
     hash,
   });
 
-  const approve = async (tokenAddress: `0x${string}`, amount: string, decimals: number = 18) => {
+  const approve = async (tokenAddress: `0x${string}`, amount: string, decimals: number = 6) => {
     const amountInUnits = parseUnits(amount, decimals);
     
     return writeContractAsync({
@@ -95,5 +95,16 @@ export function useApproveToken() {
   return { approve, hash, error, isPending, isConfirming, isSuccess };
 }
 
+/**
+ * Hook to get token addresses
+ */
+export function useTokenAddresses() {
+  return {
+    USDC: SUPPORTED_TOKENS.USDC,
+    USDT: SUPPORTED_TOKENS.USDT,
+  };
+}
+
 export * from './abi';
 export * from './constants';
+export * from './types';

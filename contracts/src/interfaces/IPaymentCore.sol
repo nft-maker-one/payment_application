@@ -11,6 +11,16 @@ interface IPaymentCore {
         uint256  registeredAt;  // block.timestamp of registration
     }
 
+    struct Subscription {
+        address payer;
+        address merchant;
+        address token;
+        uint256 amount;
+        uint256 interval;
+        uint256 lastPaymentTime;
+        bool    active;
+    }
+
     // ─── Events ──────────────────────────────────────────────────────────────
 
     event MerchantRegistered(address indexed merchant, string name);
@@ -27,6 +37,17 @@ interface IPaymentCore {
         uint256  amount,
         uint256  fee
     );
+
+    event SubscriptionCreated(
+        bytes32 indexed subscriptionId,
+        address indexed payer,
+        address indexed merchant,
+        address  token,
+        uint256  amount,
+        uint256  interval
+    );
+    event SubscriptionExecuted(bytes32 indexed subscriptionId, uint256 amount, uint256 fee);
+    event SubscriptionCancelled(bytes32 indexed subscriptionId);
 
     event TokenAdded(address indexed token);
     event TokenRemoved(address indexed token);
@@ -45,6 +66,25 @@ interface IPaymentCore {
         address merchant,
         uint256 amount
     ) external returns (bytes32 paymentId);
+
+    // ─── Subscriptions ───────────────────────────────────────────────────────
+
+    function subscribe(
+        address token,
+        address merchant,
+        uint256 amount,
+        uint256 interval
+    ) external returns (bytes32 subscriptionId);
+
+    function executeSubscription(bytes32 subscriptionId) external;
+
+    function cancelSubscription(bytes32 subscriptionId) external;
+
+    function getSubscription(bytes32 subscriptionId) external view returns (Subscription memory);
+
+    // ─── Metrics ─────────────────────────────────────────────────────────────
+
+    function getGlobalStats() external view returns (uint256 totalPayments, uint256 totalSubscriptions);
 
     // ─── Merchant Registry ───────────────────────────────────────────────────
 

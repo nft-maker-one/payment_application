@@ -1,8 +1,24 @@
-// Default Anvil local addresses (from README or standard local deployment)
-export const PAYMENT_CORE_ADDRESS = (process.env.NEXT_PUBLIC_PAYMENT_CORE_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3') as `0x${string}`;
-export const FEE_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_FEE_MANAGER_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512') as `0x${string}`;
+// Local Anvil Deployment Addresses
+export const PAYMENT_CORE_ADDRESS = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as `0x${string}`;
+export const FEE_MANAGER_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3' as `0x${string}`;
 
 export const SUPPORTED_TOKENS = {
-  USDC: (process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0') as `0x${string}`,
-  USDT: (process.env.NEXT_PUBLIC_USDT_ADDRESS || '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9') as `0x${string}`,
+  USDC: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0' as `0x${string}`,
+  USDT: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9' as `0x${string}`,
+};
+
+export const REGISTERED_MERCHANTS = [
+  { name: '测试商户 (Test Merchant)', address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' as `0x${string}` },
+  { name: '官方旗舰店 (Official Store)', address: '0x90F79bf6EB2c4f870365E785982E1f101E93b906' as `0x${string}` },
+];
+
+// Helper for consistency with previous interface if needed
+export const getContractAddress = (_chainId: number, type: 'PAYMENT_CORE' | 'FEE_MANAGER' | 'USDC' | 'USDT') => {
+  const mapping = {
+    PAYMENT_CORE: PAYMENT_CORE_ADDRESS,
+    FEE_MANAGER: FEE_MANAGER_ADDRESS,
+    USDC: SUPPORTED_TOKENS.USDC,
+    USDT: SUPPORTED_TOKENS.USDT,
+  };
+  return mapping[type];
 };

@@ -1,6 +1,6 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { PAYMENT_CORE_ABI, ERC20_ABI, FEE_MANAGER_ABI } from './abi';
-import { PAYMENT_CORE_ADDRESS, FEE_MANAGER_ADDRESS } from './constants';
+import { PAYMENT_CORE_ADDRESS, FEE_MANAGER_ADDRESS, SUPPORTED_TOKENS, REGISTERED_MERCHANTS } from './constants';
 import { parseUnits } from 'viem';
 
 // --- Hooks for PaymentCore ---
@@ -15,7 +15,7 @@ export function usePay() {
     hash,
   });
 
-  const pay = async (tokenAddress: `0x${string}`, merchantAddress: `0x${string}`, amount: string, decimals: number = 18) => {
+  const pay = async (tokenAddress: `0x${string}`, merchantAddress: `0x${string}`, amount: string, decimals: number = 6) => {
     const amountInUnits = parseUnits(amount, decimals);
     
     return writeContractAsync({
@@ -27,6 +27,63 @@ export function usePay() {
   };
 
   return { pay, hash, error, isPending, isConfirming, isSuccess };
+}
+
+/**
+ * Hook to create a subscription
+ */
+export function useSubscribe() {
+  const { writeContractAsync, data: hash, error, isPending } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const subscribe = async (tokenAddress: `0x${string}`, merchantAddress: `0x${string}`, amount: string, intervalSeconds: number = 3600, decimals: number = 6) => {
+    const amountInUnits = parseUnits(amount, decimals);
+    
+    return writeContractAsync({
+      address: PAYMENT_CORE_ADDRESS,
+      abi: PAYMENT_CORE_ABI,
+      functionName: 'subscribe',
+      args: [tokenAddress, merchantAddress, amountInUnits, BigInt(intervalSeconds)],
+    });
+  };
+
+  return { subscribe, hash, error, isPending, isConfirming, isSuccess };
+}
+
+/**
+ * Hook to execute a subscription payment
+ */
+export function useExecuteSubscription() {
+  const { writeContractAsync, data: hash, error, isPending } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const execute = async (subscriptionId: `0x${string}`) => {
+    return writeContractAsync({
+      address: PAYMENT_CORE_ADDRESS,
+      abi: PAYMENT_CORE_ABI,
+      functionName: 'executeSubscription',
+      args: [subscriptionId],
+    });
+  };
+
+  return { execute, hash, error, isPending, isConfirming, isSuccess };
+}
+
+/**
+ * Hook to get global stats
+ */
+export function useGlobalStats() {
+  return useReadContract({
+    address: PAYMENT_CORE_ADDRESS,
+    abi: PAYMENT_CORE_ABI,
+    functionName: 'getGlobalStats',
+  });
 }
 
 /**
@@ -58,7 +115,7 @@ export function useIsSupportedToken(tokenAddress: `0x${string}`) {
 /**
  * Hook to calculate fee
  */
-export function useCalculateFee(amount: string, decimals: number = 18) {
+export function useCalculateFee(amount: string, decimals: number = 6) {
   const amountInUnits = parseUnits(amount, decimals);
   
   return useReadContract({
@@ -81,7 +138,7 @@ export function useApproveToken() {
     hash,
   });
 
-  const approve = async (tokenAddress: `0x${string}`, amount: string, decimals: number = 18) => {
+  const approve = async (tokenAddress: `0x${string}`, amount: string, decimals: number = 6) => {
     const amountInUnits = parseUnits(amount, decimals);
     
     return writeContractAsync({
@@ -93,6 +150,16 @@ export function useApproveToken() {
   };
 
   return { approve, hash, error, isPending, isConfirming, isSuccess };
+}
+
+/**
+ * Hook to get token addresses
+ */
+export function useTokenAddresses() {
+  return {
+    USDC: SUPPORTED_TOKENS.USDC,
+    USDT: SUPPORTED_TOKENS.USDT,
+  };
 }
 
 export * from './abi';

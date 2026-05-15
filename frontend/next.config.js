@@ -1,8 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
+  transpilePackages: ['@metamask/sdk'],
   webpack: (config) => {
     config.externals.push('pino-pretty', 'lokijs', 'encoding');
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
     return config;
   },
 };
